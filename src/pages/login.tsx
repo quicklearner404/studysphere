@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import FormInput from '@/components/FormInput';
 import { loginSchema } from '@/lib/validators';
-import { z } from 'zod';
 import { useRouter } from 'next/router';
 
 export default function LoginPage() {
@@ -18,6 +17,7 @@ export default function LoginPage() {
     e.preventDefault();
     setServerError(null);
     setErrors({});
+    
     const parsed = loginSchema.safeParse(values);
     if (!parsed.success) {
       const fieldErrors: Record<string, string> = {};
@@ -25,9 +25,20 @@ export default function LoginPage() {
       setErrors(fieldErrors);
       return;
     }
-    const res = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(values) });
-    if (res.ok) router.push('/dashboard');
-    else setServerError('Invalid email or password');
+    
+    const res = await fetch('/api/login', { 
+      method: 'POST', 
+      headers: { 'Content-Type': 'application/json' }, 
+      body: JSON.stringify(values) 
+    });
+    
+    if (res.ok) {
+      const { token } = await res.json();
+      localStorage.setItem('supabase_token', token);
+      router.push('/dashboard');
+    } else {
+      setServerError('Invalid email or password');
+    }
   }
 
   return (
@@ -42,5 +53,3 @@ export default function LoginPage() {
     </main>
   );
 }
-
-

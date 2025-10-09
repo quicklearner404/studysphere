@@ -2,11 +2,11 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/router';
 import { motion, AnimatePresence } from 'framer-motion';
 import FormInput from '@/components/FormInput';
-import { registerSchema } from '@/lib/validators';
+import { loginSchema } from '@/lib/validators';
 
-export default function RegisterPage() {
+export default function HomePage() {
   const router = useRouter();
-  const [values, setValues] = useState({ name: '', email: '', password: '' });
+  const [values, setValues] = useState({ email: '', password: '' });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -22,8 +22,8 @@ export default function RegisterPage() {
     setServerError(null);
     setErrors({});
     setIsLoading(true);
-
-    const parsed = registerSchema.safeParse(values);
+    
+    const parsed = loginSchema.safeParse(values);
     if (!parsed.success) {
       const fieldErrors: Record<string, string> = {};
       parsed.error.errors.forEach((er) => (fieldErrors[er.path[0] as string] = er.message));
@@ -31,21 +31,21 @@ export default function RegisterPage() {
       setIsLoading(false);
       return;
     }
-
+    
     try {
-      const res = await fetch('/api/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(values)
+      const res = await fetch('/api/login', { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify(values) 
       });
-
+      
       if (res.ok) {
         const { token } = await res.json();
         localStorage.setItem('supabase_token', token);
         router.push('/dashboard');
       } else {
         const data = await res.json();
-        setServerError(data.error || 'Registration failed');
+        setServerError(data.error || 'Invalid email or password');
       }
     } catch (error) {
       setServerError('Something went wrong. Please try again.');
@@ -71,7 +71,7 @@ export default function RegisterPage() {
         left: 0,
         width: '100%',
         height: '100%',
-        background: 'radial-gradient(circle at 80% 20%, rgba(0,0,0,0.02) 0%, transparent 50%), radial-gradient(circle at 20% 80%, rgba(0,0,0,0.02) 0%, transparent 50%)',
+        background: 'radial-gradient(circle at 20% 50%, rgba(0,0,0,0.02) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(0,0,0,0.02) 0%, transparent 50%)',
         pointerEvents: 'none'
       }} />
 
@@ -107,11 +107,11 @@ export default function RegisterPage() {
             color: '#666',
             fontWeight: 400
           }}>
-            Create your account and start learning
+            Welcome back! Please login to continue
           </p>
         </motion.div>
 
-        {/* Register Card */}
+        {/* Login Card */}
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -131,22 +131,6 @@ export default function RegisterPage() {
               transition={{ delay: 0.4 }}
             >
               <FormInput
-                label="Full Name"
-                name="name"
-                type="text"
-                value={values.name}
-                onChange={onChange}
-                error={errors.name}
-                placeholder="Enter your full name"
-              />
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.5 }}
-            >
-              <FormInput
                 label="Email"
                 name="email"
                 type="email"
@@ -160,7 +144,7 @@ export default function RegisterPage() {
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.6 }}
+              transition={{ delay: 0.5 }}
               style={{ marginBottom: '30px' }}
             >
               <FormInput
@@ -170,7 +154,7 @@ export default function RegisterPage() {
                 value={values.password}
                 onChange={onChange}
                 error={errors.password}
-                placeholder="Create a password"
+                placeholder="Enter your password"
               />
             </motion.div>
 
@@ -199,7 +183,7 @@ export default function RegisterPage() {
             <motion.button
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.7 }}
+              transition={{ delay: 0.6 }}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               type="submit"
@@ -218,7 +202,7 @@ export default function RegisterPage() {
                 opacity: isLoading ? 0.7 : 1
               }}
             >
-              {isLoading ? 'Creating Account...' : 'Create Account'}
+              {isLoading ? 'Logging in...' : 'Login'}
             </motion.button>
           </form>
 
@@ -226,7 +210,7 @@ export default function RegisterPage() {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 0.8 }}
+            transition={{ delay: 0.7 }}
             style={{
               margin: '30px 0',
               display: 'flex',
@@ -239,20 +223,20 @@ export default function RegisterPage() {
             <div style={{ flex: 1, height: '1px', background: '#e0e0e0' }} />
           </motion.div>
 
-          {/* Login link */}
+          {/* Sign up link */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 0.9 }}
+            transition={{ delay: 0.8 }}
             style={{ textAlign: 'center' }}
           >
             <p style={{ color: '#666', marginBottom: '15px', fontSize: '0.95rem' }}>
-              Already have an account?
+              Don't have an account?
             </p>
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              onClick={() => router.push('/')}
+              onClick={() => router.push('/register')}
               style={{
                 width: '100%',
                 padding: '14px',
@@ -266,7 +250,7 @@ export default function RegisterPage() {
                 transition: 'all 0.3s ease'
               }}
             >
-              Login
+              Create Account
             </motion.button>
           </motion.div>
         </motion.div>

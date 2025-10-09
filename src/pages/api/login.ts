@@ -1,27 +1,49 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { supabase } from '@/lib/supabaseClient';
-import { verifyPassword, setAuthCookie, signJwt } from '@/lib/auth';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { loginSchema } from '@/lib/validators';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'POST') return res.status(405).end();
-  const parse = loginSchema.safeParse(req.body);
-  if (!parse.success) return res.status(400).json({ error: 'Invalid payload' });
-  const { email, password } = parse.data;
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
 
-  const { data: user, error } = await supabase
-    .from('students')
-    .select('id, email, name, password_hash')
-    .eq('email', email)
-    .single();
-  if (error || !user) return res.status(401).json({ error: 'Invalid credentials' });
+  try {
+    const parsed = loginSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Invalid input' });
+    }
 
-  const ok = await verifyPassword(password, user.password_hash);
-  if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
+    const { email, password } = parsed.data;
 
-  const token = signJwt({ sub: user.id, email: user.email });
-  res.setHeader('Set-Cookie', setAuthCookie(token));
-  return res.status(200).json({ user: { id: user.id, email: user.email, name: user.name } });
+    // Sign in with Supabase Auth
+    const { data, error } = await supabaseAdmin.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error || !data.session) {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    // Fetch student data
+    const { data: student, error: studentError } = await supabaseAdmin
+      .from('students')
+      .select('*')
+      .eq('id', data.user.id)
+      .single();
+
+    if (studentError) {
+      console.error('Student fetch error:', studentError);
+    }
+
+    return res.status(200).json({ 
+      token: data.session.access_token,
+      user: data.user,
+      student: student
+    });
+
+  } catch (error) {
+    console.error('Login error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
 }
-
-

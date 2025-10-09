@@ -1,32 +1,76 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { supabase } from '@/lib/supabaseClient';
-import { hashPassword, setAuthCookie, signJwt } from '@/lib/auth';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { registerSchema } from '@/lib/validators';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'POST') return res.status(405).end();
-  const parse = registerSchema.safeParse(req.body);
-  if (!parse.success) return res.status(400).json({ error: 'Invalid payload' });
-  const { name, email, password } = parse.data;
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
 
-  const { data: existing } = await supabase
-    .from('students')
-    .select('id')
-    .eq('email', email)
-    .maybeSingle();
-  if (existing) return res.status(409).json({ error: 'Email already registered' });
+  try {
+    const parsed = registerSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Invalid input' });
+    }
 
-  const password_hash = await hashPassword(password);
-  const { data, error } = await supabase
-    .from('students')
-    .insert({ name, email, password_hash })
-    .select('id, name, email')
-    .single();
-  if (error) return res.status(500).json({ error: error.message });
+    const { name, email, password } = parsed.data;
 
-  const token = signJwt({ sub: data.id, email: data.email });
-  res.setHeader('Set-Cookie', setAuthCookie(token));
-  return res.status(201).json({ user: data });
+    // Create user in Supabase Auth
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true, // Auto-confirm email for development
+      user_metadata: {
+        name: name
+      }
+    });
+
+    if (authError) {
+      return res.status(400).json({ error: authError.message });
+    }
+
+    if (!authData.user) {
+      return res.status(500).json({ error: 'User creation failed' });
+    }
+
+    // The trigger will automatically create the student record
+    // Wait a moment for the trigger to complete
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // Fetch student data
+    const { data: student, error: studentError } = await supabaseAdmin
+      .from('students')
+      .select('*')
+      .eq('id', authData.user.id)
+      .single();
+
+    if (studentError) {
+      console.error('Student fetch error:', studentError);
+    }
+
+    // Sign in the user to get a valid session token
+    const { data: signInData, error: signInError } = await supabaseAdmin.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (signInError || !signInData.session) {
+      // If sign-in fails, still return success but without token
+      return res.status(201).json({ 
+        user: authData.user,
+        student: student,
+        message: 'User created successfully. Please log in.'
+      });
+    }
+
+    return res.status(201).json({ 
+      user: authData.user,
+      student: student,
+      token: signInData.session.access_token
+    });
+
+  } catch (error) {
+    console.error('Registration error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
 }
-
-
