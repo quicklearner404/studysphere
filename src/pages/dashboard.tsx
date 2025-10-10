@@ -1,11 +1,17 @@
+// src/pages/dashboard.tsx
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '@/lib/supabaseClient';
 import { motion, AnimatePresence } from 'framer-motion';
 
+interface DashboardData {
+  greeting: string;
+  points: number;
+}
+
 export default function DashboardPage() {
   const router = useRouter();
-  const [data, setData] = useState<{ greeting: string; points: number } | null>(null);
+  const [data, setData] = useState<DashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -129,7 +135,7 @@ export default function DashboardPage() {
                 </button>
                 
                 <button
-                  onClick={() => alert('Profile coming soon!')}
+                  onClick={() => router.push('/profile')}
                   style={{
                     width: '100%',
                     padding: '14px 16px',
@@ -225,10 +231,10 @@ export default function DashboardPage() {
           style={{ marginBottom: '30px' }}
         >
           <h2 style={{ fontSize: '2rem', fontWeight: 700, color: '#000', marginBottom: '8px' }}>
-            Dashboard
+            Welcome Back!
           </h2>
           <p style={{ fontSize: '1rem', color: '#666' }}>
-            {data?.greeting || 'Welcome back! Here\'s your learning progress.'}
+            {data?.greeting || "Here's your learning progress."}
           </p>
         </motion.div>
 
@@ -481,7 +487,7 @@ export default function DashboardPage() {
               <button style={{
                 width: '100%',
                 padding: '12px',
-                background: '#dc2626',
+                background: '#000',
                 color: '#fff',
                 border: 'none',
                 borderRadius: '8px',
