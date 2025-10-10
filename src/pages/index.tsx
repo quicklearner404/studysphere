@@ -1,68 +1,45 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import { motion, AnimatePresence } from 'framer-motion';
-import FormInput from '@/components/FormInput';
-import { loginSchema } from '@/lib/validators';
+import { motion } from 'framer-motion';
+import { supabase } from '@/lib/supabaseClient';
 
 export default function HomePage() {
   const router = useRouter();
-  const [values, setValues] = useState({ email: '', password: '' });
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [serverError, setServerError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isChecking, setIsChecking] = useState(true);
 
-  function onChange(e: React.ChangeEvent<HTMLInputElement>) {
-    setValues((v) => ({ ...v, [e.target.name]: e.target.value }));
-    setErrors({});
-    setServerError(null);
-  }
-
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setServerError(null);
-    setErrors({});
-    setIsLoading(true);
-    
-    const parsed = loginSchema.safeParse(values);
-    if (!parsed.success) {
-      const fieldErrors: Record<string, string> = {};
-      parsed.error.errors.forEach((er) => (fieldErrors[er.path[0] as string] = er.message));
-      setErrors(fieldErrors);
-      setIsLoading(false);
-      return;
-    }
-    
-    try {
-      const res = await fetch('/api/login', { 
-        method: 'POST', 
-        headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify(values) 
-      });
-      
-      if (res.ok) {
-        const { token } = await res.json();
-        localStorage.setItem('supabase_token', token);
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
         router.push('/dashboard');
       } else {
-        const data = await res.json();
-        setServerError(data.error || 'Invalid email or password');
+        setIsChecking(false);
       }
-    } catch (error) {
-      setServerError('Something went wrong. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
+    };
+    checkSession();
+  }, [router]);
+
+  // Show loading while checking session
+  if (isChecking) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: '#fff'
+      }}>
+        <div style={{ fontSize: '1.2rem', color: '#999' }}>Loading...</div>
+      </div>
+    );
   }
 
   return (
     <div style={{
       minHeight: '100vh',
       background: '#ffffff',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '20px',
-      position: 'relative'
+      position: 'relative',
+      overflow: 'hidden'
     }}>
       {/* Subtle background decoration */}
       <div style={{
@@ -75,186 +52,243 @@ export default function HomePage() {
         pointerEvents: 'none'
       }} />
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
+      {/* Header */}
+      <motion.header
+        initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8 }}
+        transition={{ duration: 0.6 }}
         style={{
-          width: '100%',
-          maxWidth: '450px',
           position: 'relative',
-          zIndex: 1
+          zIndex: 10,
+          padding: '20px 40px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
         }}
       >
-        {/* Logo/Title */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          style={{ textAlign: 'center', marginBottom: '3rem' }}
-        >
-          <h1 style={{
-            fontSize: '3.5rem',
-            color: '#000000',
-            marginBottom: '0.5rem',
-            fontWeight: 800,
-            letterSpacing: '-2px'
-          }}>
-            StudySphere
-          </h1>
-          <p style={{
-            fontSize: '1.1rem',
-            color: '#666',
-            fontWeight: 400
-          }}>
-            Welcome back! Please login to continue
-          </p>
-        </motion.div>
-
-        {/* Login Card */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.3, duration: 0.5 }}
-          style={{
-            background: '#ffffff',
-            padding: '40px',
-            borderRadius: '20px',
-            boxShadow: '0 10px 40px rgba(0,0,0,0.1)',
-            border: '1px solid rgba(0,0,0,0.05)'
-          }}
-        >
-          <form onSubmit={onSubmit}>
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 }}
-            >
-              <FormInput
-                label="Email"
-                name="email"
-                type="email"
-                value={values.email}
-                onChange={onChange}
-                error={errors.email}
-                placeholder="Enter your email"
-              />
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.5 }}
-              style={{ marginBottom: '30px' }}
-            >
-              <FormInput
-                label="Password"
-                name="password"
-                type="password"
-                value={values.password}
-                onChange={onChange}
-                error={errors.password}
-                placeholder="Enter your password"
-              />
-            </motion.div>
-
-            <AnimatePresence>
-              {serverError && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                  style={{
-                    padding: '14px',
-                    background: '#fee',
-                    border: '1px solid #fcc',
-                    borderRadius: '10px',
-                    color: '#c00',
-                    marginBottom: '20px',
-                    fontSize: '0.9rem',
-                    textAlign: 'center'
-                  }}
-                >
-                  {serverError}
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            <motion.button
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.6 }}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              type="submit"
-              disabled={isLoading}
-              style={{
-                width: '100%',
-                padding: '16px',
-                fontSize: '1.1rem',
-                background: '#000000',
-                color: '#ffffff',
-                border: 'none',
-                borderRadius: '12px',
-                cursor: isLoading ? 'not-allowed' : 'pointer',
-                fontWeight: 600,
-                transition: 'all 0.3s ease',
-                opacity: isLoading ? 0.7 : 1
-              }}
-            >
-              {isLoading ? 'Logging in...' : 'Login'}
-            </motion.button>
-          </form>
-
-          {/* Divider */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.7 }}
+        <h2 style={{
+          fontSize: '1.8rem',
+          fontWeight: 800,
+          color: '#000',
+          letterSpacing: '-1px'
+        }}>
+          StudySphere
+        </h2>
+        <div style={{ display: 'flex', gap: '15px' }}>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => router.push('/login')}
             style={{
-              margin: '30px 0',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px'
+              padding: '10px 24px',
+              background: 'transparent',
+              color: '#000',
+              border: '2px solid #000',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontWeight: 600,
+              fontSize: '0.95rem'
             }}
           >
-            <div style={{ flex: 1, height: '1px', background: '#e0e0e0' }} />
-            <span style={{ color: '#999', fontSize: '0.9rem' }}>OR</span>
-            <div style={{ flex: 1, height: '1px', background: '#e0e0e0' }} />
-          </motion.div>
-
-          {/* Sign up link */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.8 }}
-            style={{ textAlign: 'center' }}
+            Login
+          </motion.button>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => router.push('/register')}
+            style={{
+              padding: '10px 24px',
+              background: '#000',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontWeight: 600,
+              fontSize: '0.95rem'
+            }}
           >
-            <p style={{ color: '#666', marginBottom: '15px', fontSize: '0.95rem' }}>
-              Don't have an account?
-            </p>
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => router.push('/register')}
+            Sign Up
+          </motion.button>
+        </div>
+      </motion.header>
+
+      {/* Hero Section */}
+      <div style={{
+        position: 'relative',
+        zIndex: 1,
+        maxWidth: '1200px',
+        margin: '0 auto',
+        padding: '80px 40px',
+        textAlign: 'center'
+      }}>
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.2 }}
+        >
+          <h1 style={{
+            fontSize: '4.5rem',
+            fontWeight: 900,
+            color: '#000',
+            marginBottom: '24px',
+            letterSpacing: '-3px',
+            lineHeight: '1.1'
+          }}>
+            Track Your Academic
+            <br />
+            Journey with Ease
+          </h1>
+          <p style={{
+            fontSize: '1.3rem',
+            color: '#666',
+            marginBottom: '40px',
+            maxWidth: '600px',
+            margin: '0 auto 40px'
+          }}>
+            StudySphere helps students manage their points, track progress, and achieve their academic goals efficiently.
+          </p>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => router.push('/register')}
+            style={{
+              padding: '18px 48px',
+              fontSize: '1.2rem',
+              background: '#000',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '12px',
+              cursor: 'pointer',
+              fontWeight: 700,
+              boxShadow: '0 10px 30px rgba(0,0,0,0.2)'
+            }}
+          >
+            Get Started Free
+          </motion.button>
+        </motion.div>
+
+        {/* Features Grid */}
+        <motion.div
+          initial={{ opacity: 0, y: 40 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.4 }}
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+            gap: '30px',
+            marginTop: '100px'
+          }}
+        >
+          {[
+            {
+              title: '📊 Track Points',
+              description: 'Monitor your academic points and progress in real-time'
+            },
+            {
+              title: '🎯 Set Goals',
+              description: 'Define and achieve your academic milestones'
+            },
+            {
+              title: '📈 View Analytics',
+              description: 'Get insights into your performance and growth'
+            },
+            {
+              title: '🔒 Secure & Private',
+              description: 'Your data is protected with enterprise-grade security'
+            }
+          ].map((feature, index) => (
+            <motion.div
+              key={index}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6 + index * 0.1 }}
+              whileHover={{ y: -5 }}
               style={{
-                width: '100%',
-                padding: '14px',
-                fontSize: '1rem',
-                background: 'transparent',
-                color: '#000',
-                border: '2px solid #000',
-                borderRadius: '12px',
-                cursor: 'pointer',
-                fontWeight: 600,
-                transition: 'all 0.3s ease'
+                padding: '40px 30px',
+                background: '#fff',
+                borderRadius: '16px',
+                boxShadow: '0 5px 20px rgba(0,0,0,0.08)',
+                border: '1px solid rgba(0,0,0,0.05)',
+                textAlign: 'left'
               }}
             >
-              Create Account
-            </motion.button>
-          </motion.div>
+              <h3 style={{
+                fontSize: '1.5rem',
+                marginBottom: '12px',
+                color: '#000',
+                fontWeight: 700
+              }}>
+                {feature.title}
+              </h3>
+              <p style={{
+                fontSize: '1rem',
+                color: '#666',
+                lineHeight: '1.6'
+              }}>
+                {feature.description}
+              </p>
+            </motion.div>
+          ))}
         </motion.div>
-      </motion.div>
+
+        {/* CTA Section */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1.2 }}
+          style={{
+            marginTop: '120px',
+            padding: '60px',
+            background: '#000',
+            borderRadius: '24px',
+            color: '#fff'
+          }}
+        >
+          <h2 style={{
+            fontSize: '2.5rem',
+            fontWeight: 800,
+            marginBottom: '20px'
+          }}>
+            Ready to Transform Your Studies?
+          </h2>
+          <p style={{
+            fontSize: '1.2rem',
+            marginBottom: '30px',
+            opacity: 0.9
+          }}>
+            Join thousands of students already using StudySphere
+          </p>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => router.push('/register')}
+            style={{
+              padding: '16px 40px',
+              fontSize: '1.1rem',
+              background: '#fff',
+              color: '#000',
+              border: 'none',
+              borderRadius: '10px',
+              cursor: 'pointer',
+              fontWeight: 700
+            }}
+          >
+            Create Your Account
+          </motion.button>
+        </motion.div>
+      </div>
+
+      {/* Footer */}
+      <footer style={{
+        position: 'relative',
+        zIndex: 1,
+        textAlign: 'center',
+        padding: '40px',
+        color: '#999',
+        fontSize: '0.9rem'
+      }}>
+        <p>© 2025 StudySphere. All rights reserved.</p>
+      </footer>
     </div>
   );
 }
