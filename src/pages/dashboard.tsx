@@ -85,29 +85,53 @@ export default function DashboardPage() {
             </p>
           </motion.div>
 
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            
-            {/* Total Points */}
+          {/* Main Features Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            {/* Study Sessions */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
+              className="bg-white border-2 border-black rounded-lg p-6 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+              onClick={() => router.push('/study-sessions')}
+            >
+              <div className="flex justify-between items-start mb-3">
+                <span className="text-sm text-gray-600 font-semibold">Study Sessions</span>
+                <span className="text-2xl">👥</span>
+              </div>
+              <h3 className="text-lg font-medium mb-1">Join or Create Sessions</h3>
+              <p className="text-sm text-gray-500">Collaborate with peers</p>
+            </motion.div>
+
+            {/* Create Session */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="bg-white border-2 border-black rounded-lg p-6 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+              onClick={() => router.push('/study-sessions/create')}
+            >
+              <div className="flex justify-between items-start mb-3">
+                <span className="text-sm text-gray-600 font-semibold">Create Session</span>
+                <span className="text-2xl">�</span>
+              </div>
+              <h3 className="text-lg font-medium mb-1">Host a Study Session</h3>
+              <p className="text-sm text-gray-500">Start collaborating</p>
+            </motion.div>
+
+            {/* Your Points */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
               className="bg-white border-2 border-black rounded-lg p-6 shadow-sm"
             >
               <div className="flex justify-between items-start mb-3">
-                <span className="text-sm text-gray-600 font-semibold">Total Points</span>
+                <span className="text-sm text-gray-600 font-semibold">Your Points</span>
                 <span className="text-2xl">🏆</span>
               </div>
-              <h3 className="text-4xl font-bold text-black mb-2">
-                {data?.points || 1250}
-              </h3>
-              <p className="text-sm text-green-600 font-medium">
-                Keep learning to earn more!
-              </p>
-              <p className="text-xs text-gray-500 mt-1">
-                +12% from last week
-              </p>
+              <h3 className="text-2xl font-bold mb-1">{data?.points || 0}</h3>
+              <p className="text-sm text-gray-500">Keep learning to earn more!</p>
             </motion.div>
 
             {/* Current Streak */}
