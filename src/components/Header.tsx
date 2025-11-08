@@ -33,6 +33,7 @@ export default function Header({ studentName }: HeaderProps) {
   const navLinks = [
     { name: 'Dashboard', path: '/dashboard', icon: '📊' },
     { name: 'Profile', path: '/profile', icon: '👤' },
+    { name: 'Discussions', path: '/discussion', icon: '💬' },
     { name: 'Study Sessions', path: '/study-sessions', icon: '�' },
     { name: 'Pomodoro', path: '/pomodoro', icon: '⏱️' },
   ];
