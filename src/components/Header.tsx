@@ -4,6 +4,14 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { createClient } from '@supabase/supabase-js';
+import {
+  ChartBarIcon,
+  UserIcon,
+  ChatBubbleLeftEllipsisIcon,
+  UserGroupIcon,
+  ClockIcon,
+  BookOpenIcon,
+} from '@heroicons/react/24/outline';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -29,14 +37,33 @@ export default function Header({ studentName }: HeaderProps) {
   };
 
   const isActive = (path: string) => router.pathname === path;
-
   const navLinks = [
-    { name: 'Dashboard', path: '/dashboard', icon: '📊' },
-    { name: 'Profile', path: '/profile', icon: '👤' },
-    { name: 'Discussions', path: '/discussion', icon: '💬' },
-    { name: 'Study Sessions', path: '/study-sessions', icon: '�' },
-    { name: 'Pomodoro', path: '/pomodoro', icon: '⏱️' },
+    { name: 'Dashboard', path: '/dashboard' },
+    { name: 'Profile', path: '/profile' },
+    { name: 'Quizzes', path: '/quizzes' },
+    { name: 'Discussions', path: '/discussion' },
+    { name: 'Study Sessions', path: '/study-sessions' },
+    { name: 'Pomodoro', path: '/pomodoro' },
   ];
+
+  const getIconFor = (name: string) => {
+    switch (name) {
+      case 'Dashboard':
+        return <ChartBarIcon className="w-5 h-5 inline-block mr-2" />;
+      case 'Profile':
+        return <UserIcon className="w-5 h-5 inline-block mr-2" />;
+      case 'Quizzes':
+        return <BookOpenIcon className="w-5 h-5 inline-block mr-2" />;
+      case 'Discussions':
+        return <ChatBubbleLeftEllipsisIcon className="w-5 h-5 inline-block mr-2" />;
+      case 'Study Sessions':
+        return <UserGroupIcon className="w-5 h-5 inline-block mr-2" />;
+      case 'Pomodoro':
+        return <ClockIcon className="w-5 h-5 inline-block mr-2" />;
+      default:
+        return null;
+    }
+  };
 
   return (
     <header className="bg-white border-b-2 border-black sticky top-0 z-50">
@@ -67,7 +94,7 @@ export default function Header({ studentName }: HeaderProps) {
                     : 'text-black hover:bg-gray-100'
                 }`}
               >
-                <span className="mr-2">{link.icon}</span>
+                {getIconFor(link.name)}
                 {link.name}
               </Link>
             ))}
@@ -158,7 +185,7 @@ export default function Header({ studentName }: HeaderProps) {
                   }`}
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
-                  <span className="mr-2">{link.icon}</span>
+                  {getIconFor(link.name)}
                   {link.name}
                 </Link>
               ))}

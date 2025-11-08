@@ -67,4 +67,45 @@ create table if not exists public.flashcards (
 );
 
 
+-- Quizzes (MCQ) feature tables
+create table if not exists public.quizzes (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  description text,
+  created_by uuid references public.students(id) on delete set null,
+  topic_id uuid references public.topics(id) on delete set null,
+  created_at timestamp with time zone not null default now()
+);
+
+create table if not exists public.quiz_questions (
+  id uuid primary key default gen_random_uuid(),
+  quiz_id uuid references public.quizzes(id) on delete cascade,
+  question_text text not null,
+  "order" integer not null default 0
+);
+
+create table if not exists public.quiz_options (
+  id uuid primary key default gen_random_uuid(),
+  question_id uuid references public.quiz_questions(id) on delete cascade,
+  option_text text not null,
+  is_correct boolean not null default false
+);
+
+create table if not exists public.quiz_attempts (
+  id uuid primary key default gen_random_uuid(),
+  quiz_id uuid references public.quizzes(id) on delete cascade,
+  student_id uuid references public.students(id) on delete cascade,
+  score integer not null,
+  created_at timestamp with time zone not null default now()
+);
+
+create table if not exists public.quiz_attempt_answers (
+  id uuid primary key default gen_random_uuid(),
+  attempt_id uuid references public.quiz_attempts(id) on delete cascade,
+  question_id uuid references public.quiz_questions(id) on delete cascade,
+  selected_option_id uuid references public.quiz_options(id) on delete set null,
+  is_correct boolean not null
+);
+
+
 

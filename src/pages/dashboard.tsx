@@ -4,6 +4,8 @@ import { useRouter } from 'next/router';
 import { supabase } from '@/lib/supabaseClient';
 import { motion } from 'framer-motion';
 import MainLayout from '@/components/Layout/MainLayout';
+import Link from 'next/link';
+import { ChatBubbleLeftEllipsisIcon, UserGroupIcon } from '@heroicons/react/24/outline';
 
 interface DashboardData {
   greeting: string;
@@ -11,10 +13,20 @@ interface DashboardData {
   studentName?: string;
 }
 
+interface DiscussionPreview {
+  id: string;
+  title: string;
+  body?: string;
+  created_at?: string;
+  author?: { name?: string };
+  discussion_answers?: any[];
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const [data, setData] = useState<DashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [recentQuestions, setRecentQuestions] = useState<DiscussionPreview[]>([]);
 
   useEffect(() => {
     const fetchDashboard = async () => {
@@ -42,6 +54,21 @@ export default function DashboardPage() {
 
         const dashboardData = await response.json();
         setData(dashboardData);
+        // fetch recent discussions for dashboard preview
+        try {
+          const resp = await fetch('/api/discussions', {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (resp.ok) {
+            const all = await resp.json();
+            // take 5 most recent by created_at desc
+            const sorted = (all || []).sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+            setRecentQuestions(sorted.slice(0, 5));
+          }
+        } catch (e) {
+          console.error('Failed to fetch recent discussions', e);
+        }
+
         setIsLoading(false);
       } catch (error) {
         console.error('Dashboard fetch error:', error);
@@ -212,25 +239,37 @@ export default function DashboardPage() {
                 </button>
               </div>
 
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                <div className="flex justify-between items-start mb-2">
-                  <h4 className="text-base font-semibold text-black flex-1 pr-2">
-                    How do I solve quadratic equations efficiently?
-                  </h4>
-                  <span className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-md text-xs font-semibold whitespace-nowrap">
-                    Mathematics
-                  </span>
-                </div>
-                <p className="text-sm text-gray-600 mb-3">
-                  I'm struggling with completing the square method. Can someone explain the steps in detail?
-                </p>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-gray-500">Sarah Chen • 2 hours ago</span>
-                  <div className="flex gap-3 items-center">
-                    <span className="text-sm text-gray-600">👍 9</span>
-                    <span className="text-sm text-gray-600">💬 5 answers</span>
+              <div className="space-y-4">
+                {recentQuestions.length === 0 ? (
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center text-gray-600">
+                    No recent questions. Be the first to ask one in Discussions!
                   </div>
-                </div>
+                ) : (
+                  recentQuestions.map((q) => (
+                    <div key={q.id} className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                      <div className="flex justify-between items-start mb-2">
+                        <h4 className="text-base font-semibold text-black flex-1 pr-2">
+                          <Link href={`/discussion/${q.id}`} className="hover:underline">
+                            {q.title}
+                          </Link>
+                        </h4>
+                        <span className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-md text-xs font-semibold whitespace-nowrap">
+                          {q.discussion_answers?.length ?? 0} answers
+                        </span>
+                      </div>
+                      {q.body ? (
+                        <p className="text-sm text-gray-600 mb-3 line-clamp-3">{q.body}</p>
+                      ) : null}
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs text-gray-500">{q.author?.name ?? 'Unknown'} • {q.created_at ? new Date(q.created_at).toLocaleString() : ''}</span>
+                        <div className="flex gap-2 items-center">
+                          <ChatBubbleLeftEllipsisIcon className="w-4 h-4 text-gray-600" />
+                          <span className="text-sm text-gray-600">{q.discussion_answers?.length ?? 0}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </motion.div>
 
@@ -266,8 +305,9 @@ export default function DashboardPage() {
                 <div className="text-sm text-gray-600 mb-2">
                   🕐 2:00 PM - 4:00 PM
                 </div>
-                <div className="text-sm text-gray-600 mb-4">
-                  👥 Already 12 participants
+                <div className="text-sm text-gray-600 mb-4 flex items-center gap-2">
+                  <UserGroupIcon className="w-4 h-4 text-gray-600" />
+                  <span>Already 12 participants</span>
                 </div>
                 <button className="w-full py-3 bg-black text-white font-semibold rounded-lg hover:bg-gray-800 transition">
                   Join Session
