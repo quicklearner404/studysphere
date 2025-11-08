@@ -67,25 +67,36 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       // award participation points: base 10 per attempt, bonus +10 if score >= 70
+      // award participation points: base 10 per attempt, bonus +10 if score >= 70
+      const base = 10;
+      const bonus = score >= 70 ? 10 : 0;
+      const totalAward = base + bonus;
+
       try {
-        const base = 10;
-        const bonus = score >= 70 ? 10 : 0;
-        const totalAward = base + bonus;
-        await supabaseAdmin.rpc('increment_student_points', { student_uuid: user.id, delta: totalAward });
-      } catch (e) {
-        // fallback: read current points and update (non-atomic but compatible)
-        try {
-          const base = 10;
-          const bonus = score >= 70 ? 10 : 0;
-          const totalAward = base + bonus;
-          const { data: studentData, error: studentErr } = await supabaseAdmin.from('students').select('points').eq('id', user.id).single();
-          if (!studentErr && studentData) {
-            const current = Number(studentData.points || 0);
-            await supabaseAdmin.from('students').update({ points: current + totalAward }).eq('id', user.id);
-          }
-        } catch (ee) {
-          console.error('Failed to award quiz points:', ee);
+        const { data: rpcData, error: rpcErr } = await supabaseAdmin.rpc('increment_student_points', { student_uuid: user.id, delta: totalAward });
+        if (rpcErr) {
+          // rpc exists but returned an error
+          console.warn('increment_student_points RPC error:', rpcErr.message);
+        } else {
+          // rpcData will be the new points value (or null)
+          // When RPC works, we're done awarding points
         }
+      } catch (e) {
+        console.warn('increment_student_points RPC failed (likely not present). Falling back to safe update.', e);
+      }
+
+      // Fallback: read-then-update (non-atomic) and log if the student row doesn't exist
+      try {
+        const { data: studentData, error: studentErr } = await supabaseAdmin.from('students').select('points').eq('id', user.id).single();
+        if (!studentErr && studentData) {
+          const current = Number(studentData.points || 0);
+          const { error: finalErr } = await supabaseAdmin.from('students').update({ points: current + totalAward }).eq('id', user.id);
+          if (finalErr) console.error('Failed to update student points in fallback:', finalErr);
+        } else {
+          console.warn('No student row found for user when awarding points. student id:', user.id);
+        }
+      } catch (ee) {
+        console.error('Failed to award quiz points in fallback path:', ee);
       }
 
       // compute per-question correctness with correct option ids to return

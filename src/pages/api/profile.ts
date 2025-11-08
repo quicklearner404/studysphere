@@ -81,6 +81,31 @@ export default async function handler(
       }
 
       console.log('✅ Student data fetched successfully');
+      // Compute dynamic quiz stats from quiz_attempts
+      try {
+        const { data: attempts, count: attemptsCount, error: attemptsErr } = await supabaseAdmin
+          .from('quiz_attempts')
+          .select('score', { count: 'exact' })
+          .eq('student_id', user.id);
+        if (!attemptsErr) {
+          const totalQuizzes = Number(attemptsCount || 0);
+          let averageScore = 0;
+          if (totalQuizzes > 0 && Array.isArray(attempts)) {
+            const sum = (attempts as any[]).reduce((s, a) => s + Number(a.score || 0), 0);
+            averageScore = Math.round(sum / totalQuizzes);
+          }
+          // merge into personal_stats so frontend still reads student.personal_stats
+          student.personal_stats = Object.assign({}, student.personal_stats || {}, {
+            totalQuizzes,
+            averageScore
+          });
+        } else {
+          console.warn('Failed to compute quiz stats for profile:', attemptsErr);
+        }
+      } catch (e) {
+        console.warn('Error computing quiz stats:', e);
+      }
+
       return res.status(200).json({ student: student as Student });
 
     } catch (error) {

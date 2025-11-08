@@ -107,5 +107,28 @@ create table if not exists public.quiz_attempt_answers (
   is_correct boolean not null
 );
 
+-- RPC: atomic increment of student points
+-- Returns the new points total (integer) or NULL if student not found
+create or replace function public.increment_student_points(student_uuid uuid, delta integer)
+returns integer as $$
+declare
+  new_points integer;
+begin
+  update public.students
+  set points = coalesce(points,0) + delta,
+      updated_at = now()
+  where id = student_uuid;
+
+  if found then
+    select points into new_points from public.students where id = student_uuid;
+    return new_points;
+  else
+    -- student row doesn't exist; do not create (registration should create students row).
+    raise notice 'increment_student_points: student % not found', student_uuid;
+    return null;
+  end if;
+end;
+$$ language plpgsql security definer;
+
 
 
