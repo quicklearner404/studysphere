@@ -29,8 +29,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(200).json(data);
     }
 
+    if (req.method === 'DELETE') {
+      // Only author (or admin logic if added) can delete
+      // Fetch discussion to check owner
+      const { data: disc, error: discErr } = await supabaseAdmin.from('discussions').select('author_id').eq('id', id).single();
+      if (discErr || !disc) return res.status(404).json({ error: 'Discussion not found' });
+
+      if (disc.author_id !== user.id) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+
+      const { error: delErr } = await supabaseAdmin.from('discussions').delete().eq('id', id);
+      if (delErr) return res.status(500).json({ error: delErr.message });
+      return res.status(204).end();
+    }
+
     // POST for answers moved to /api/discussion-answers
-    res.setHeader('Allow', ['GET']);
+    res.setHeader('Allow', ['GET', 'DELETE']);
     return res.status(405).json({ error: `Method ${req.method} Not Allowed` });
   } catch (e: any) {
     console.error('Discussion [id] API error:', e);

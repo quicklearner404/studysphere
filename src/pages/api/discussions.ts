@@ -37,6 +37,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .single();
 
       if (error) return res.status(500).json({ error: error.message });
+      // Award participation points for creating a question
+      try {
+        const { data: studentData, error: studentErr } = await supabaseAdmin
+          .from('students')
+          .select('points')
+          .eq('id', user.id)
+          .single();
+
+        if (!studentErr && studentData) {
+          const current = Number(studentData.points || 0);
+          const newPoints = current + 10; // +10 points for posting a question
+          await supabaseAdmin.from('students').update({ points: newPoints }).eq('id', user.id);
+        }
+      } catch (e) {
+        console.error('Failed to award points for question:', e);
+      }
+
       return res.status(201).json(data);
     }
 

@@ -110,12 +110,74 @@ export default function DiscussionDetail() {
 
             <hr className="my-4" />
 
-            <h2 className="text-xl font-semibold">Answers</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold">Answers</h2>
+              {discussion.author_id === user?.id && (
+                <button
+                  className="text-red-600 text-sm"
+                  onClick={async () => {
+                    if (!confirm('Delete this question? This will remove all answers.')) return;
+                    try {
+                      const token = await getToken();
+                      const resp = await fetch(`/api/discussions/${id}`, {
+                        method: 'DELETE',
+                        headers: { Authorization: `Bearer ${token}` }
+                      });
+                      if (resp.status === 204) {
+                        // go back to list
+                        router.push('/discussion');
+                      } else {
+                        console.error('Failed to delete question', await resp.text());
+                      }
+                    } catch (err) {
+                      console.error(err);
+                    }
+                  }}
+                >
+                  Delete question
+                </button>
+              )}
+            </div>
             <ul>
               {discussion.discussion_answers?.map((a: any) => (
-                <li key={a.id} className="border-b py-3">
-                  <div className="text-sm text-gray-600">by {a.author?.name || 'Unknown'}</div>
-                  <div className="mt-1">{a.body}</div>
+                <li key={a.id} className="border-b py-3 flex justify-between items-start">
+                  <div>
+                    <div className="text-sm text-gray-600">by {a.author?.name || 'Unknown'}</div>
+                    <div className="mt-1">{a.body}</div>
+                  </div>
+                  {a.author_id === user?.id && (
+                    <div>
+                      <button
+                        className="text-red-600 text-sm"
+                        onClick={async () => {
+                          if (!confirm('Delete this answer?')) return;
+                          try {
+                            const token = await getToken();
+                            const resp = await fetch(`/api/discussion-answers?id=${a.id}`, {
+                              method: 'DELETE',
+                              headers: { Authorization: `Bearer ${token}` }
+                            });
+                            if (resp.status === 204) {
+                              // refresh answers
+                              const aRes = await fetch(`/api/discussion-answers?discussion_id=${id}`, {
+                                headers: { Authorization: `Bearer ${token}` }
+                              });
+                              if (aRes.ok) {
+                                const answers = await aRes.json();
+                                setDiscussion((d: any) => ({ ...(d || {}), discussion_answers: answers }));
+                              }
+                            } else {
+                              console.error('Failed to delete answer', await resp.text());
+                            }
+                          } catch (err) {
+                            console.error(err);
+                          }
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>

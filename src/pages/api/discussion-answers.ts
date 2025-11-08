@@ -41,7 +41,42 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .single();
 
       if (error) return res.status(500).json({ error: error.message });
+      // Award participation points for answering
+      try {
+        const { data: studentData, error: studentErr } = await supabaseAdmin
+          .from('students')
+          .select('points')
+          .eq('id', user.id)
+          .single();
+
+        if (!studentErr && studentData) {
+          const current = Number(studentData.points || 0);
+          const newPoints = current + 5; // +5 points for posting an answer
+          await supabaseAdmin.from('students').update({ points: newPoints }).eq('id', user.id);
+        }
+      } catch (e) {
+        console.error('Failed to award points for answer:', e);
+      }
+
       return res.status(201).json(data);
+    }
+
+    if (req.method === 'DELETE') {
+      // delete an answer by id passed as query param or in body
+      const answerId = String(req.query.id || req.body.id || '');
+      if (!answerId) return res.status(400).json({ error: 'id required' });
+
+      // fetch answer to verify owner
+      const { data: ans, error: ansErr } = await supabaseAdmin.from('discussion_answers').select('author_id').eq('id', answerId).single();
+      if (ansErr || !ans) return res.status(404).json({ error: 'Answer not found' });
+
+      if (ans.author_id !== user.id) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+
+      const { error: delErr } = await supabaseAdmin.from('discussion_answers').delete().eq('id', answerId);
+      if (delErr) return res.status(500).json({ error: delErr.message });
+      return res.status(204).end();
     }
 
     res.setHeader('Allow', ['GET', 'POST']);
