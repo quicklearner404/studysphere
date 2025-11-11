@@ -41,6 +41,7 @@ export default function Header({ studentName }: HeaderProps) {
     { name: 'Dashboard', path: '/dashboard' },
     { name: 'Profile', path: '/profile' },
     { name: 'Quizzes', path: '/quizzes' },
+    { name: 'Leaderboard', path: '/leaderboard' },
     { name: 'Discussions', path: '/discussion' },
     { name: 'Study Sessions', path: '/study-sessions' },
     { name: 'Pomodoro', path: '/pomodoro' },
@@ -54,6 +55,8 @@ export default function Header({ studentName }: HeaderProps) {
         return <UserIcon className="w-5 h-5 inline-block mr-2" />;
       case 'Quizzes':
         return <BookOpenIcon className="w-5 h-5 inline-block mr-2" />;
+      case 'Leaderboard':
+        return <ChartBarIcon className="w-5 h-5 inline-block mr-2" />;
       case 'Discussions':
         return <ChatBubbleLeftEllipsisIcon className="w-5 h-5 inline-block mr-2" />;
       case 'Study Sessions':

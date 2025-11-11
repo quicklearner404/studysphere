@@ -63,7 +63,13 @@ create table if not exists public.flashcards (
   deck_id uuid references public.flashcard_decks(id) on delete cascade,
   front text not null,
   back text not null,
-  created_at timestamp with time zone not null default now()
+  created_at timestamp with time zone not null default now(),
+  -- Spaced Repetition fields (SM-2 basics)
+  last_reviewed timestamp with time zone,
+  repetition_count integer not null default 0,
+  interval_days integer not null default 1,
+  ease numeric(4,2) not null default 2.50,
+  next_review_at timestamp with time zone not null default now()
 );
 
 
