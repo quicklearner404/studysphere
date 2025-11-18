@@ -1,5 +1,4 @@
 import React from 'react';
-import { motion } from 'framer-motion';
 
 interface Props extends React.InputHTMLAttributes<HTMLInputElement> {
   label: string;
@@ -11,22 +10,19 @@ export default function FormInput({ label, error, ...props }: Props) {
 
   return (
     <div style={{ marginBottom: 20 }}>
-      <motion.label
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
+      <label
         style={{
           display: 'block',
           fontWeight: 600,
           marginBottom: '8px',
           color: '#000',
           fontSize: '0.95rem',
-          transition: 'color 0.3s ease'
         }}
       >
         {label}
-      </motion.label>
+      </label>
 
-      <motion.input
+      <input
         {...props}
         onFocus={(e) => {
           setIsFocused(true);
@@ -36,7 +32,6 @@ export default function FormInput({ label, error, ...props }: Props) {
           setIsFocused(false);
           props.onBlur?.(e);
         }}
-        whileFocus={{ scale: 1.01 }}
         style={{
           width: '100%',
           padding: '14px 16px',
@@ -47,14 +42,13 @@ export default function FormInput({ label, error, ...props }: Props) {
           transition: 'all 0.3s ease',
           background: '#ffffff',
           color: '#000',
-          fontFamily: 'inherit'
+          fontFamily: 'inherit',
+          transform: isFocused ? 'scale(1.01)' : 'scale(1)',
         }}
       />
 
       {error && (
-        <motion.div
-          initial={{ opacity: 0, y: -5 }}
-          animate={{ opacity: 1, y: 0 }}
+        <div
           style={{
             color: '#ff4444',
             fontSize: '0.85rem',
@@ -63,7 +57,7 @@ export default function FormInput({ label, error, ...props }: Props) {
           }}
         >
           {error}
-        </motion.div>
+        </div>
       )}
     </div>
   );
