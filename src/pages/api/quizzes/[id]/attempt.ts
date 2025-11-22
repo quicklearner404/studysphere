@@ -20,31 +20,55 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     if (req.method === 'POST') {
       const payload = req.body;
-      const answers: { question_id: string; selected_option_id: string }[] = payload.answers || [];
+      const submittedAnswers: { question_id: string; selected_option_id: string }[] = payload.answers || [];
 
-      // fetch correct options for these questions
-      const questionIds = answers.map((a) => a.question_id);
+      // 1. Fetch ALL questions for this quiz to ensure we grade everything
+      const { data: allQuestions, error: qError } = await supabaseAdmin
+        .from('quiz_questions')
+        .select('id')
+        .eq('quiz_id', id);
 
+      if (qError || !allQuestions) {
+        throw new Error('Failed to fetch quiz questions');
+      }
+
+      const allQuestionIds = allQuestions.map((q) => q.id);
+      const totalQuestions = allQuestionIds.length;
+
+      // 2. Fetch correct options for ALL questions
       const { data: correctOptions } = await supabaseAdmin
         .from('quiz_options')
         .select('id,question_id')
         .eq('is_correct', true)
-        .in('question_id', questionIds || []);
+        .in('question_id', allQuestionIds);
 
       const correctMap: Record<string, string> = {};
       (correctOptions || []).forEach((co: any) => { correctMap[co.question_id] = co.id; });
 
+      // 3. Map submitted answers
+      const submittedMap: Record<string, string> = {};
+      submittedAnswers.forEach((a) => { submittedMap[a.question_id] = a.selected_option_id; });
+
       let correctCount = 0;
       const attemptAnswers: any[] = [];
-      for (const a of answers) {
-        const correctId = correctMap[a.question_id];
-        const isCorrect = correctId ? correctId === a.selected_option_id : false;
+
+      // 4. Grade every question
+      for (const qId of allQuestionIds) {
+        const selectedId = submittedMap[qId] || null;
+        const correctId = correctMap[qId];
+        
+        // It's correct only if they selected the right option
+        const isCorrect = (selectedId && correctId && selectedId === correctId) || false;
+        
         if (isCorrect) correctCount += 1;
-        attemptAnswers.push({ question_id: a.question_id, selected_option_id: a.selected_option_id, is_correct: isCorrect });
+        
+        attemptAnswers.push({ 
+          question_id: qId, 
+          selected_option_id: selectedId, 
+          is_correct: isCorrect 
+        });
       }
 
-      // total questions count
-      const totalQuestions = questionIds.length || 0;
       const score = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0;
 
       // insert attempt
@@ -100,16 +124,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       // compute per-question correctness with correct option ids to return
-      const { data: corrects } = await supabaseAdmin
-        .from('quiz_options')
-        .select('id,question_id')
-        .eq('is_correct', true)
-        .in('question_id', questionIds || []);
-
-      const correctByQ: Record<string, string> = {};
-      (corrects || []).forEach((c: any) => { correctByQ[c.question_id] = c.id; });
-
-      const results = attemptAnswers.map((a) => ({ question_id: a.question_id, selected_option_id: a.selected_option_id, is_correct: a.is_correct, correct_option_id: correctByQ[a.question_id] }));
+      // We already have correctMap from earlier
+      const results = attemptAnswers.map((a) => ({ 
+        question_id: a.question_id, 
+        selected_option_id: a.selected_option_id, 
+        is_correct: a.is_correct, 
+        correct_option_id: correctMap[a.question_id] 
+      }));
 
       return res.status(200).json({ score, totalQuestions, correctCount, results });
     }
