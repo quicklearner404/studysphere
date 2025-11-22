@@ -1,176 +1,206 @@
-// ==================== FILE 1: API ROUTE ====================
 // Location: src/pages/api/profile.ts
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 
-// Supabase Admin Client (uses service role key for backend operations)
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// Types
-interface Student {
-  id: string;
-  name: string;
-  email: string;
-  points: number;
-  personal_stats: {
-    totalQuizzes?: number;
-    averageScore?: number;
-    studyStreak?: number;
-    totalStudyTime?: number;
-    [key: string]: any;
-  };
-  created_at: string;
-  updated_at: string;
-}
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.replace('Bearer ', '');
 
-interface ErrorResponse {
-  error: string;
-}
+  if (!token) {
+    return res.status(401).json({ error: 'No token provided' });
+  }
 
-interface SuccessResponse {
-  student: Student;
-}
+  const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
 
-type ApiResponse = SuccessResponse | ErrorResponse;
+  if (authError || !user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
 
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse<ApiResponse>
-) {
-  console.log(`🔵 API Request: ${req.method} /api/profile`);
-
-  // Handle GET request - Fetch profile
-  if (req.method === 'GET') {
-    try {
-      // Get token from Authorization header
-      const authHeader = req.headers.authorization;
-      const token = authHeader?.replace('Bearer ', '');
-
-      if (!token) {
-        console.error('❌ No token provided');
-        return res.status(401).json({ error: 'No token provided' });
-      }
-
-      console.log('🔍 Verifying token...');
-      
-      // Verify token and get user
-      const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
-
-      if (authError || !user) {
-        console.error('❌ Invalid token:', authError);
-        return res.status(401).json({ error: 'Invalid token' });
-      }
-
-      console.log(`✅ User verified: ${user.id}`);
-      console.log('📊 Fetching student data...');
-
-      // Fetch student data
+  try {
+    if (req.method === 'GET') {
+      // Fetch student basic info
       const { data: student, error: studentError } = await supabaseAdmin
         .from('students')
-        .select('*')
+        .select('id, name, email, points, created_at, updated_at')
         .eq('id', user.id)
         .single();
 
       if (studentError) {
-        console.error('❌ Student fetch error:', studentError);
-        return res.status(404).json({ error: 'Student not found' });
+        return res.status(500).json({ error: studentError.message });
       }
 
-      console.log('✅ Student data fetched successfully');
-      // Compute dynamic quiz stats from quiz_attempts
-      try {
-        const { data: attempts, count: attemptsCount, error: attemptsErr } = await supabaseAdmin
-          .from('quiz_attempts')
-          .select('score', { count: 'exact' })
-          .eq('student_id', user.id);
-        if (!attemptsErr) {
-          const totalQuizzes = Number(attemptsCount || 0);
-          let averageScore = 0;
-          if (totalQuizzes > 0 && Array.isArray(attempts)) {
-            const sum = (attempts as any[]).reduce((s, a) => s + Number(a.score || 0), 0);
-            averageScore = Math.round(sum / totalQuizzes);
+      // Calculate quiz stats
+      const { data: quizAttempts, error: quizError } = await supabaseAdmin
+        .from('quiz_attempts')
+        .select('score')
+        .eq('student_id', user.id);
+
+      const totalQuizzes = quizAttempts?.length || 0;
+      const averageScore = totalQuizzes > 0 && quizAttempts
+        ? Math.round(quizAttempts.reduce((sum, attempt) => sum + attempt.score, 0) / totalQuizzes)
+        : 0;
+
+      // Calculate study session stats (sessions attended)
+      const { data: attendanceRecords, error: attendanceError } = await supabaseAdmin
+        .from('attendance_records')
+        .select('duration')
+        .eq('student_id', user.id)
+        .not('duration', 'is', null);
+
+      const totalStudySessions = attendanceRecords?.length || 0;
+
+      // Calculate total study time from attendance records
+      let totalStudyTimeSeconds = 0;
+      if (attendanceRecords) {
+        for (const record of attendanceRecords) {
+          if (record.duration) {
+            // Parse PostgreSQL interval format (e.g., "01:30:00" or "1 hour 30 mins")
+            const duration = record.duration;
+            const matches = duration.match(/(\d+):(\d+):(\d+)/);
+            if (matches) {
+              const hours = parseInt(matches[1]);
+              const minutes = parseInt(matches[2]);
+              const seconds = parseInt(matches[3]);
+              totalStudyTimeSeconds += (hours * 3600) + (minutes * 60) + seconds;
+            }
           }
-          // merge into personal_stats so frontend still reads student.personal_stats
-          student.personal_stats = Object.assign({}, student.personal_stats || {}, {
-            totalQuizzes,
-            averageScore
-          });
-        } else {
-          console.warn('Failed to compute quiz stats for profile:', attemptsErr);
         }
-      } catch (e) {
-        console.warn('Error computing quiz stats:', e);
       }
 
-      return res.status(200).json({ student: student as Student });
+      // Calculate pomodoro stats
+      const { data: pomodoroSessions, error: pomodoroError } = await supabaseAdmin
+        .from('pomodoro_sessions')
+        .select('completed_sessions, total_focus_time')
+        .eq('user_id', user.id);
 
-    } catch (error) {
-      console.error('❌ Profile fetch error:', error);
-      return res.status(500).json({ error: 'Internal server error' });
+      const totalPomodoroSessions = pomodoroSessions?.reduce((sum, session) => 
+        sum + (session.completed_sessions || 0), 0) || 0;
+
+      const totalPomodoroTime = pomodoroSessions?.reduce((sum, session) => 
+        sum + (session.total_focus_time || 0), 0) || 0;
+
+      // Combine study time from attendance and pomodoro
+      const totalStudyTime = totalStudyTimeSeconds + totalPomodoroTime;
+
+      return res.status(200).json({
+        student: {
+          id: student.id,
+          name: student.name,
+          email: student.email,
+          points: student.points,
+          created_at: student.created_at,
+          updated_at: student.updated_at,
+          stats: {
+            totalQuizzes,
+            averageScore,
+            totalStudySessions,
+            totalStudyTime,
+            totalPomodoroSessions
+          }
+        }
+      });
     }
-  }
 
-  // Handle PUT/PATCH request - Update profile
-  if (req.method === 'PUT' || req.method === 'PATCH') {
-    try {
-      // Get token from Authorization header
-      const authHeader = req.headers.authorization;
-      const token = authHeader?.replace('Bearer ', '');
-
-      if (!token) {
-        console.error('❌ No token provided');
-        return res.status(401).json({ error: 'No token provided' });
-      }
-
-      console.log('🔍 Verifying token...');
-
-      // Verify token and get user
-      const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
-
-      if (authError || !user) {
-        console.error('❌ Invalid token:', authError);
-        return res.status(401).json({ error: 'Invalid token' });
-      }
-
-      console.log(`✅ User verified: ${user.id}`);
-
-      // Get update data from request body
+    if (req.method === 'PUT') {
       const { name } = req.body;
 
       if (!name || !name.trim()) {
-        console.error('❌ Invalid name provided');
         return res.status(400).json({ error: 'Name is required' });
       }
 
-      console.log(`💾 Updating student name to: ${name}`);
-
-      // Update student data
-      const { data: student, error: updateError } = await supabaseAdmin
+      const { data: updatedStudent, error: updateError } = await supabaseAdmin
         .from('students')
-        .update({ name: name.trim() })
+        .update({ 
+          name: name.trim(),
+          updated_at: new Date().toISOString()
+        })
         .eq('id', user.id)
-        .select()
+        .select('id, name, email, points, created_at, updated_at')
         .single();
 
       if (updateError) {
-        console.error('❌ Update error:', updateError);
-        return res.status(500).json({ error: 'Failed to update profile' });
+        return res.status(500).json({ error: updateError.message });
       }
 
-      console.log('✅ Profile updated successfully');
-      return res.status(200).json({ student: student as Student });
+      // Recalculate stats after update
+      const { data: quizAttempts } = await supabaseAdmin
+        .from('quiz_attempts')
+        .select('score')
+        .eq('student_id', user.id);
 
-    } catch (error) {
-      console.error('❌ Profile update error:', error);
-      return res.status(500).json({ error: 'Internal server error' });
+      const totalQuizzes = quizAttempts?.length || 0;
+      const averageScore = totalQuizzes > 0 && quizAttempts
+        ? Math.round(quizAttempts.reduce((sum, attempt) => sum + attempt.score, 0) / totalQuizzes)
+        : 0;
+
+      const { data: attendanceRecords } = await supabaseAdmin
+        .from('attendance_records')
+        .select('duration')
+        .eq('student_id', user.id)
+        .not('duration', 'is', null);
+
+      const totalStudySessions = attendanceRecords?.length || 0;
+
+      let totalStudyTimeSeconds = 0;
+      if (attendanceRecords) {
+        for (const record of attendanceRecords) {
+          if (record.duration) {
+            const matches = record.duration.match(/(\d+):(\d+):(\d+)/);
+            if (matches) {
+              const hours = parseInt(matches[1]);
+              const minutes = parseInt(matches[2]);
+              const seconds = parseInt(matches[3]);
+              totalStudyTimeSeconds += (hours * 3600) + (minutes * 60) + seconds;
+            }
+          }
+        }
+      }
+
+      const { data: pomodoroSessions } = await supabaseAdmin
+        .from('pomodoro_sessions')
+        .select('completed_sessions, total_focus_time')
+        .eq('user_id', user.id);
+
+      const totalPomodoroSessions = pomodoroSessions?.reduce((sum, session) => 
+        sum + (session.completed_sessions || 0), 0) || 0;
+
+      const totalPomodoroTime = pomodoroSessions?.reduce((sum, session) => 
+        sum + (session.total_focus_time || 0), 0) || 0;
+
+      const totalStudyTime = totalStudyTimeSeconds + totalPomodoroTime;
+
+      return res.status(200).json({
+        student: {
+          id: updatedStudent.id,
+          name: updatedStudent.name,
+          email: updatedStudent.email,
+          points: updatedStudent.points,
+          created_at: updatedStudent.created_at,
+          updated_at: updatedStudent.updated_at,
+          stats: {
+            totalQuizzes,
+            averageScore,
+            totalStudySessions,
+            totalStudyTime,
+            totalPomodoroSessions
+          }
+        }
+      });
     }
-  }
 
-  // Method not allowed
-  console.warn(`⚠️ Method not allowed: ${req.method}`);
-  return res.status(405).json({ error: 'Method not allowed' });
+    res.setHeader('Allow', ['GET', 'PUT']);
+    return res.status(405).json({ error: `Method ${req.method} Not Allowed` });
+
+  } catch (error) {
+    console.error('Profile API error:', error);
+    return res.status(500).json({ 
+      error: error instanceof Error ? error.message : 'Internal server error' 
+    });
+  }
 }

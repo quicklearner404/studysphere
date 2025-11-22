@@ -9,16 +9,12 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-interface PersonalStats {
-  totalQuizzes?: number;
-  averageScore?: number;
-  studyStreak?: number;
-  totalStudyTime?: number;
-  totalStudySessions?: number;
-  activePlans?: number;
-  completedTasks?: number;
-  miniGamesPlayed?: number;
-  [key: string]: any;
+interface ProfileStats {
+  totalQuizzes: number;
+  averageScore: number;
+  totalStudySessions: number;
+  totalStudyTime: number; // in seconds
+  totalPomodoroSessions: number;
 }
 
 interface Student {
@@ -26,7 +22,7 @@ interface Student {
   name: string;
   email: string;
   points: number;
-  personal_stats: PersonalStats;
+  stats: ProfileStats;
   created_at: string;
   updated_at: string;
 }
@@ -271,102 +267,49 @@ export default function ProfilePage() {
           {/* Stats Grid - Study Activities */}
           <div className="mb-6">
             <h2 className="text-xl font-bold text-black mb-4">Study Statistics</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               
               <div className="bg-white border-2 border-black rounded-lg p-6">
                 <p className="text-gray-600 text-sm mb-2">Quizzes Completed</p>
-                <p className="text-3xl font-bold text-black">{student.personal_stats.totalQuizzes || 0}</p>
-                <p className="text-xs text-gray-500 mt-2">From class diagram: Quiz entity</p>
+                <p className="text-3xl font-bold text-black">{student.stats.totalQuizzes}</p>
+                <p className="text-xs text-gray-500 mt-2">All-time total</p>
               </div>
 
               <div className="bg-white border-2 border-black rounded-lg p-6">
                 <p className="text-gray-600 text-sm mb-2">Average Score</p>
-                <p className="text-3xl font-bold text-black">{student.personal_stats.averageScore || 0}%</p>
-                <p className="text-xs text-gray-500 mt-2">Based on QuizAttempt records</p>
+                <p className="text-3xl font-bold text-black">{student.stats.averageScore}%</p>
+                <p className="text-xs text-gray-500 mt-2">Based on quiz attempts</p>
               </div>
 
               <div className="bg-white border-2 border-black rounded-lg p-6">
                 <p className="text-gray-600 text-sm mb-2">Study Sessions</p>
-                <p className="text-3xl font-bold text-black">{student.personal_stats.totalStudySessions || 0}</p>
-                <p className="text-xs text-gray-500 mt-2">From StudySession entity</p>
-              </div>
-
-              <div className="bg-white border-2 border-black rounded-lg p-6">
-                <p className="text-gray-600 text-sm mb-2">Study Streak</p>
-                <p className="text-3xl font-bold text-black">{student.personal_stats.studyStreak || 0} days</p>
-                <p className="text-xs text-gray-500 mt-2">Consecutive active days</p>
+                <p className="text-3xl font-bold text-black">{student.stats.totalStudySessions}</p>
+                <p className="text-xs text-gray-500 mt-2">Total sessions attended</p>
               </div>
             </div>
           </div>
 
-          {/* Features Grid - From Class Diagram */}
+          {/* Activity Overview */}
           <div className="mb-6">
-            <h2 className="text-xl font-bold text-black mb-4">Activity Overview</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              
-              <div className="bg-white border-2 border-black rounded-lg p-6">
-                <div className="flex justify-between items-start mb-3">
-                  <h3 className="font-bold text-black">Study Planner</h3>
-                  <span className="text-2xl">📅</span>
-                </div>
-                <p className="text-3xl font-bold text-black mb-1">{student.personal_stats.activePlans || 0}</p>
-                <p className="text-sm text-gray-600">Active study plans</p>
-                <p className="text-xs text-gray-500 mt-3">Feature: StudyPlanner entity</p>
-              </div>
-
-              <div className="bg-white border-2 border-black rounded-lg p-6">
-                <div className="flex justify-between items-start mb-3">
-                  <h3 className="font-bold text-black">Pomodoro Timer</h3>
-                  <span className="text-2xl">⏱️</span>
-                </div>
-                <p className="text-3xl font-bold text-black mb-1">{formatTime(student.personal_stats.totalStudyTime || 0)}</p>
-                <p className="text-sm text-gray-600">Total focus time</p>
-                <p className="text-xs text-gray-500 mt-3">Feature: PomodoroTimer entity</p>
-              </div>
-
-              <div className="bg-white border-2 border-black rounded-lg p-6">
-                <div className="flex justify-between items-start mb-3">
-                  <h3 className="font-bold text-black">Mini Games</h3>
-                  <span className="text-2xl">🎮</span>
-                </div>
-                <p className="text-3xl font-bold text-black mb-1">{student.personal_stats.miniGamesPlayed || 0}</p>
-                <p className="text-sm text-gray-600">Games played</p>
-                <p className="text-xs text-gray-500 mt-3">Feature: MiniGame entity</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Engagement Features */}
-          <div className="mb-6">
-            <h2 className="text-xl font-bold text-black mb-4">Engagement & Community</h2>
+            <h2 className="text-xl font-bold text-black mb-4">Focus Time</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               
               <div className="bg-white border-2 border-black rounded-lg p-6">
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h3 className="font-bold text-black mb-2">Video Conferences</h3>
-                    <p className="text-sm text-gray-600">Join study groups and collaborate</p>
-                  </div>
-                  <span className="text-3xl">📹</span>
+                <div className="flex justify-between items-start mb-3">
+                  <h3 className="font-bold text-black">Total Study Time</h3>
+                  <span className="text-2xl">⏱️</span>
                 </div>
-                <p className="text-xs text-gray-500">Feature: VideoConference & AttendanceRecord entities</p>
-                <button className="mt-4 w-full px-4 py-2 bg-black text-white font-semibold rounded hover:bg-gray-800 text-sm">
-                  Join Conference
-                </button>
+                <p className="text-3xl font-bold text-black mb-1">{formatTime(student.stats.totalStudyTime)}</p>
+                <p className="text-sm text-gray-600">From attended sessions</p>
               </div>
 
               <div className="bg-white border-2 border-black rounded-lg p-6">
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h3 className="font-bold text-black mb-2">Tasks Completed</h3>
-                    <p className="text-sm text-gray-600">{student.personal_stats.completedTasks || 0} tasks done</p>
-                  </div>
-                  <span className="text-3xl">✅</span>
+                <div className="flex justify-between items-start mb-3">
+                  <h3 className="font-bold text-black">Pomodoro Sessions</h3>
+                  <span className="text-2xl">🍅</span>
                 </div>
-                <p className="text-xs text-gray-500">Feature: PlannerItem entity with status tracking</p>
-                <button className="mt-4 w-full px-4 py-2 bg-white text-black font-semibold rounded border-2 border-black hover:bg-gray-100 text-sm">
-                  View Tasks
-                </button>
+                <p className="text-3xl font-bold text-black mb-1">{student.stats.totalPomodoroSessions}</p>
+                <p className="text-sm text-gray-600">Completed focus sessions</p>
               </div>
             </div>
           </div>
@@ -396,14 +339,6 @@ export default function ProfilePage() {
                 <p className="text-sm text-black font-semibold">{formatDate(student.updated_at)}</p>
               </div>
             </div>
-          </div>
-
-          {/* Future Features Note */}
-          <div className="mt-6 bg-gray-50 border-2 border-gray-300 rounded-lg p-6">
-            <p className="text-sm text-gray-600 italic">
-              📊 Note: Statistics shown above are based on the class diagram entities (Quiz, StudySession, MiniGame, etc.). 
-              These features will populate as you use the platform.
-            </p>
           </div>
         </div>
       </div>
